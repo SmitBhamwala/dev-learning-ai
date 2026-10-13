@@ -35,7 +35,7 @@ claude plugin install dev-learning-ai@dev-learning-ai
 
 Run any `dev-learning-ai` command once afterwards. It writes `~/.dev-learning-ai/cli.json` (the absolute node.exe and bin.js paths), which the mod uses to find the CLI.
 
-## Open issue being worked on
+## Windows desktop-app CLI discovery (resolved)
 
 - Inside the **Claude desktop app** on Windows, the mod could not start the CLI: `$.process.run(dev-learning-ai)` failed with ENOENT, because the app's PATH differs from the terminal's.
 - The latest fix (mod 0.1.2) tries these candidates in order, and its error message reports every attempt:
@@ -43,7 +43,7 @@ Run any `dev-learning-ai` command once afterwards. It writes `~/.dev-learning-ai
   2. the paths recorded in `~/.dev-learning-ai/cli.json`
   3. `dev-learning-ai` on PATH
   4. `<repo>/apps/cli/dist/bin.js`
-- It is **not yet verified in a live session**. Next step: restart Claude Code, open a session in a registered repo, and run `/learn`. Expect "Learning on · N review(s) due". If it fails, read the per-attempt error message.
+- **Verified on 2026-10-14** in a live Claude desktop session (Windows): `/learn` shows "Learning on · 0 reviews due" and the status pane. Still unverified live: the offer band after a code-changing turn, the consent step, generation on the session model, and the quiz itself.
 - **Gotcha:** the desktop app runs installed plugins from a CACHED copy (`~/.claude/plugins/cache/dev-learning-ai/...`), not from this folder. After editing the mod, bump `version` in `integrations/claude-code/.claude-plugin/plugin.json`, run `claude plugin update dev-learning-ai@dev-learning-ai`, then start a new session.
 - The per-machine settings: `claude plugin configure dev-learning-ai@dev-learning-ai --values-stdin` sets the `cli` option. On the original machine, `ai.allow_host_model` is true in `~/.dev-learning-ai/config/config.yaml`.
 
