@@ -341,8 +341,9 @@ export class LearningService {
       const projectTechs = projectId ? (db.projects[projectId]?.technologies ?? []) : [];
       task.technologies = mergeTechs(task.technologies, [
         ...(event.technologies ?? []),
-        ...projectTechs
-          .filter((t) => !t.workspace)
+        // Root-level facts first, then sub-projects (polyglot repos such as frontend/ + backend/).
+        ...[...projectTechs]
+          .sort((a, b) => Number(Boolean(a.workspace)) - Number(Boolean(b.workspace)))
           .map((t) => ({ technology: t.technology, version: t.version })),
       ]);
       db.tasks[taskId] = task;
@@ -525,9 +526,7 @@ export class LearningService {
     let conceptIds = spec.conceptIds ?? opportunities.map((o) => o.conceptId);
     if (spec.study?.technology && conceptIds.length === 0) {
       const study = spec.study;
-      const installed = cfg.project?.technologies.find(
-        (t) => t.technology === study.technology && !t.workspace,
-      )?.version;
+      const installed = installedVersion(cfg.project, study.technology ?? "");
       const candidates = catalog
         .visibleTo(projectId)
         .filter((c) => c.technology === study.technology && c.parent)
@@ -568,7 +567,7 @@ export class LearningService {
       const evidence = opp ? opp.evidence : [];
       const installed =
         task?.technologies.find((t) => t.technology === concept.technology)?.version ??
-        cfg.project?.technologies.find((t) => t.technology === concept.technology && !t.workspace)?.version;
+        installedVersion(cfg.project, concept.technology);
       const avoid = priorPrompts(db, conceptId, projectId).map((p) => stripProjectDetail(p, projectTerms));
       const req = buildGenerationRequest({
         concept,
@@ -1232,6 +1231,12 @@ function toRequestOut(p: AssessmentSession["pending"][number]): GenerationReques
     prompt: p.prompt,
     maxTokens: p.maxTokens,
   };
+}
+
+/** The verified version of a technology in a project: the root-level fact, else any sub-project's. */
+function installedVersion(project: Project | undefined, technology: string): string | undefined {
+  const facts = project?.technologies.filter((t) => t.technology === technology && t.version) ?? [];
+  return (facts.find((t) => !t.workspace) ?? facts[0])?.version;
 }
 
 function avg(values: (number | undefined)[]): number | undefined {

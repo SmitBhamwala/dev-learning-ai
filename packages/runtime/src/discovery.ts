@@ -306,8 +306,8 @@ export async function discoverTechnologies(root: string): Promise<DiscoveryResul
         add(
           tech,
           prov("manifest", pyproject ? "pyproject.toml" : "requirements.txt", m[2] === "==" ? 0.9 : 0.6),
-          m[2] === "==" ? m[3] : undefined,
-          m[3] ? `${m[2]}${m[3]}` : undefined,
+          FAMILY_TECH.has(tech) || m[2] !== "==" ? undefined : m[3],
+          m[3] && !FAMILY_TECH.has(tech) ? `${m[2]}${m[3]}` : undefined,
         );
     }
   }
@@ -321,15 +321,88 @@ export async function discoverTechnologies(root: string): Promise<DiscoveryResul
   if ((await exists(join(root, "build.gradle"))) || (await exists(join(root, "build.gradle.kts"))))
     add("java", prov("manifest", "build.gradle", 0.9));
 
+  // Polyglot repositories with no declared workspaces (e.g. frontend/ + backend/):
+  // scan top-level folders that carry their own manifest, each with its own lockfile.
+  if (workspaces.length === 0) {
+    for (const sub of await subprojectDirs(root)) {
+      const dir = join(root, sub);
+      workspaces.push({ name: sub, path: sub });
+      const spkg = await readJsonFile<PackageJson>(join(dir, "package.json"));
+      if (spkg) {
+        add("javascript", prov("manifest", `${sub}/package.json`, 1), undefined, undefined, sub);
+        const slock = await lockfileVersions(dir);
+        const deps = { ...spkg.peerDependencies, ...spkg.devDependencies, ...spkg.dependencies };
+        for (const [name, range] of Object.entries(deps)) {
+          const tech = NPM_TECH[name];
+          if (!tech) continue;
+          const resolved = FAMILY_TECH.has(tech) ? undefined : slock?.versions.get(name);
+          if (resolved)
+            add(
+              tech,
+              prov("lockfile", `${sub}/${slock!.file}`, 1, `${name}@${resolved}`),
+              resolved,
+              range,
+              sub,
+            );
+          else
+            add(
+              tech,
+              prov("manifest", `${sub}/package.json`, 0.7, `${name}: ${range} (declared range)`),
+              undefined,
+              FAMILY_TECH.has(tech) ? undefined : range,
+              sub,
+            );
+        }
+      }
+      if (await exists(join(dir, "tsconfig.json")))
+        add("typescript", prov("config", `${sub}/tsconfig.json`, 0.9), undefined, undefined, sub);
+      if (await exists(join(dir, "Dockerfile")))
+        add("docker", prov("config", `${sub}/Dockerfile`, 1), undefined, undefined, sub);
+      const spy = await readTextFile(join(dir, "pyproject.toml"));
+      const sreq = await readTextFile(join(dir, "requirements.txt"));
+      if (spy || sreq) {
+        const file = `${sub}/${spy ? "pyproject.toml" : "requirements.txt"}`;
+        add("python", prov("manifest", file, 1), undefined, undefined, sub);
+        const text = `${spy ?? ""}\n${sreq ?? ""}`.toLowerCase();
+        for (const [name, tech] of Object.entries(PY_TECH)) {
+          const m = new RegExp(`(^|["'\\s])${name}\\s*(==|>=|~=|<|\\[|"|'|\\s|$)([\\d.]*)`, "m").exec(text);
+          if (m)
+            add(
+              tech,
+              prov("manifest", file, m[2] === "==" ? 0.9 : 0.6),
+              FAMILY_TECH.has(tech) || m[2] !== "==" ? undefined : m[3],
+              m[3] && !FAMILY_TECH.has(tech) ? `${m[2]}${m[3]}` : undefined,
+              sub,
+            );
+        }
+      }
+      const sgo = await readTextFile(join(dir, "go.mod"));
+      if (sgo)
+        add(
+          "go",
+          prov("manifest", `${sub}/go.mod`, 1),
+          undefined,
+          /^go\s+(\d+\.\d+(?:\.\d+)?)/m.exec(sgo)?.[1],
+          sub,
+        );
+      if (await exists(join(dir, "Cargo.toml")))
+        add("rust", prov("manifest", `${sub}/Cargo.toml`, 1), undefined, undefined, sub);
+      if (
+        (await exists(join(dir, "pom.xml"))) ||
+        (await exists(join(dir, "build.gradle"))) ||
+        (await exists(join(dir, "build.gradle.kts")))
+      )
+        add("java", prov("manifest", `${sub}/build file`, 0.9), undefined, undefined, sub);
+    }
+    if (workspaces.length > 0) {
+      isMonorepo = true;
+      notes.push(`sub-projects detected: ${workspaces.map((w) => w.path).join(", ")}`);
+    }
+  }
+
   // Concept families that apply to most backends once their signals exist.
-  if (
-    facts.has("express") ||
-    facts.has("fastify") ||
-    facts.has("nestjs") ||
-    facts.has("fastapi") ||
-    facts.has("django") ||
-    facts.has("flask")
-  ) {
+  const found = new Set([...facts.values()].map((f) => f.technology));
+  if (["express", "fastify", "nestjs", "fastapi", "django", "flask"].some((t) => found.has(t))) {
     add("http", prov("inferred", "dependencies", 0.8, "web framework present"));
   }
   return {
@@ -339,6 +412,50 @@ export async function discoverTechnologies(root: string): Promise<DiscoveryResul
     packageManager,
     notes,
   };
+}
+
+const MANIFESTS = [
+  "package.json",
+  "pyproject.toml",
+  "requirements.txt",
+  "go.mod",
+  "Cargo.toml",
+  "pom.xml",
+  "build.gradle",
+  "build.gradle.kts",
+];
+const SKIP_DIRS = new Set([
+  "node_modules",
+  "dist",
+  "build",
+  "out",
+  "vendor",
+  "target",
+  "coverage",
+  "docs",
+  "scripts",
+  "infra",
+]);
+
+/** Top-level folders (one level deep) that carry their own project manifest. */
+async function subprojectDirs(root: string): Promise<string[]> {
+  const out: string[] = [];
+  let entries;
+  try {
+    entries = await readdir(root, { withFileTypes: true });
+  } catch {
+    return out;
+  }
+  for (const e of entries) {
+    if (!e.isDirectory() || e.name.startsWith(".") || SKIP_DIRS.has(e.name)) continue;
+    for (const m of MANIFESTS) {
+      if (await exists(join(root, e.name, m))) {
+        out.push(e.name);
+        break;
+      }
+    }
+  }
+  return out.sort();
 }
 
 export function relativeTo(root: string, p: string): string {

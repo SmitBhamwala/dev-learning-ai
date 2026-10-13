@@ -8,6 +8,7 @@ import {
   buildReport,
   createBackup,
   discoverTechnologies,
+  summarizeTechnologies,
   registerProject,
   restoreBackup,
   syncVault,
@@ -150,6 +151,46 @@ describe("projects", () => {
     expect(react?.version).toBeUndefined(); // no lockfile: a declared range is not a verified version
     expect(react?.declaredRange).toBe("^19.0.0");
     expect(d.technologies.some((t) => t.technology === "docker")).toBe(true);
+  });
+});
+
+describe("polyglot repositories", () => {
+  it("detects sub-projects with their own manifests and lockfiles (frontend/ + backend/)", async () => {
+    const root = await tempDir("poly-");
+    await writeFiles(root, {
+      "README.md": "# app",
+      "frontend/package.json": JSON.stringify({
+        name: "web",
+        dependencies: { next: "^15.0.0", react: "^19.1.0" },
+        devDependencies: { typescript: "^5.8.3" },
+      }),
+      "frontend/pnpm-lock.yaml": [
+        "lockfileVersion: '9.0'",
+        "importers:",
+        "  .:",
+        "    dependencies:",
+        "      react:",
+        "        specifier: ^19.1.0",
+        "        version: 19.1.0",
+        "",
+      ].join("\n"),
+      "frontend/tsconfig.json": "{}",
+      "backend/pyproject.toml": [
+        "[project]",
+        'name = "api"',
+        'dependencies = ["fastapi>=0.115", "pytest"]',
+        "",
+      ].join("\n"),
+      "docs/package.json": "{}",
+    });
+    const d = await discoverTechnologies(root);
+    expect(d.workspaces.map((w) => w.path)).toEqual(["backend", "frontend"]);
+    const by = (t: string) => d.technologies.filter((f) => f.technology === t);
+    expect(by("react")[0]).toMatchObject({ version: "19.1.0", workspace: "frontend" });
+    expect(by("python")[0]?.workspace).toBe("backend");
+    expect(by("fastapi").length).toBe(1);
+    expect(by("http").length).toBe(1);
+    expect(summarizeTechnologies(d.technologies)).toContain("react 19.1.0");
   });
 });
 
