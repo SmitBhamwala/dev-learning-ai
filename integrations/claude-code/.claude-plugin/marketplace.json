@@ -1,0 +1,13 @@
+{
+  "name": "dev-learning-ai",
+  "owner": {
+    "name": "dev-learning-ai contributors"
+  },
+  "plugins": [
+    {
+      "name": "dev-learning-ai",
+      "source": "./"
+    }
+  ],
+  "description": "dev-learning-ai: learn from the work you do with Claude Code."
+}

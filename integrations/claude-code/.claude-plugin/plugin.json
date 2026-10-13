@@ -1,0 +1,22 @@
+{
+  "name": "dev-learning-ai",
+  "version": "0.1.2",
+  "description": "Learn from the work you do with Claude: a few runtime-generated questions after meaningful tasks, spaced reviews, and a knowledge record across projects.",
+  "author": { "name": "dev-learning-ai contributors" },
+  "license": "MIT",
+  "types": "./types/index.d.ts",
+  "userConfig": {
+    "cli": {
+      "type": "string",
+      "title": "dev-learning-ai command",
+      "description": "How to run the dev-learning-ai CLI, e.g. `dev-learning-ai` or `node /path/to/apps/cli/dist/bin.js`.",
+      "default": "dev-learning-ai"
+    },
+    "showStatus": {
+      "type": "boolean",
+      "title": "Show the status-line indicator",
+      "description": "A compact indicator of due reviews in the status line.",
+      "default": true
+    }
+  }
+}
