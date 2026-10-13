@@ -1,0 +1,11 @@
+node_modules/
+dist/
+*.tsbuildinfo
+coverage/
+.dev-learning-ai/local-state/
+.DS_Store
+*.log
+integrations/claude-code/.claude-plugin/types/
+integrations/claude-code/tsconfig.json
+.dev-data/
+.claude/

@@ -1,0 +1,7 @@
+node_modules
+dist
+pnpm-lock.yaml
+coverage
+integrations/claude-code/.claude-plugin/types
+*.md
+integrations/claude-code/.claude-plugin/types

@@ -1,0 +1,23 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "composite": false,
+    "declaration": false,
+    "declarationMap": false,
+    "types": ["node"],
+    "lib": ["ES2023", "DOM"],
+    "paths": {
+      "@dev-learning-ai/core": ["./packages/core/src/index.ts"],
+      "@dev-learning-ai/runtime": ["./packages/runtime/src/index.ts"],
+      "@dev-learning-ai/dashboard": ["./packages/dashboard/src/index.ts"]
+    }
+  },
+  "include": [
+    "packages/*/test/**/*.ts",
+    "apps/*/test/**/*.ts",
+    "examples/*/test/**/*.ts",
+    "tests/**/*.ts",
+    "scripts/**/*.ts"
+  ]
+}

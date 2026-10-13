@@ -1,0 +1,33 @@
+{
+  "name": "dev-learning-ai-monorepo",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Provider-agnostic developer learning platform that works alongside AI coding agents.",
+  "license": "MIT",
+  "type": "module",
+  "packageManager": "pnpm@10.33.0",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "build": "tsc -b tsconfig.build.json",
+    "typecheck": "tsc -b tsconfig.build.json --noEmit false && tsc -p tsconfig.test.json --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "node scripts/lint.mjs",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "mod:validate": "claude plugin validate integrations/claude-code",
+    "mod:test": "claude plugin test integrations/claude-code",
+    "check": "pnpm run format:check && pnpm run lint && pnpm run build && pnpm run typecheck && pnpm run test",
+    "clean": "node scripts/clean.mjs",
+    "dev:dashboard": "tsx scripts/dev-dashboard.ts"
+  },
+  "devDependencies": {
+    "@types/node": "22.15.3",
+    "prettier": "3.5.3",
+    "typescript": "5.8.3",
+    "vitest": "3.2.4",
+    "tsx": "4.19.4"
+  }
+}
